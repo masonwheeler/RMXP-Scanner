@@ -10,19 +10,21 @@ partial class MainForm:
 	private _target as int
 	private _mapName as string
 	private _mapFile as string
+	private _extension as string
 	private _results = List[of string]()
 	private _mapData = System.Collections.Generic.Dictionary[of int, string]()
-	private _filters = System.Collections.Generic.Dictionary[of string, Predicate[of XPEventCommand]]()
-	private _activeFilter as Predicate[of XPEventCommand]
+	private _filters = System.Collections.Generic.Dictionary[of string, Func[of XPEventCommand, bool]]()
+	private _activeFilter as Func[of XPEventCommand, bool]
 	
 	public def constructor():
 		// The InitializeComponent() call is required for Windows Forms designer support.
 		InitializeComponent()
 		AddFilter('Add Item', {c | c.Code == 126 and c.Params[0] == _target})
+		AddFilter('Set Switch', {c | c.Code == 121 and _target >= (c.Params[0] cast int) and _target <= (c.Params[1] cast int)})
 		AddFilter('Set Variable', {c | c.Code == 122 and _target >= (c.Params[0] cast int) and _target <= (c.Params[1] cast int)})
 		AddFilter('Teleport To Map', {c | c.Code == 201 and _target == c.Params[1] cast int})
 	
-	private def AddFilter(name as string, handler as Predicate[of XPEventCommand]):
+	private def AddFilter(name as string, handler as Func[of XPEventCommand, bool]):
 		self.comboBox1.Items.Add(name)
 		self._filters.Add(name, handler)
 	
@@ -41,34 +43,69 @@ partial class MainForm:
 		marshal.AddUnique('Tone', Tone)
 		marshal.AddUnique('Color', Tone)
 		values = marshal.Read(txtRMProject.Text)
-		self.txtOutput.Text = Hash2JSON(values).ToString()
+		vList = values as List
+		if vList is not null:
+			self.txtOutput.Clear()
+			list = System.Collections.Generic.List[of string]()
+			for i in range(vList.Count):
+				list.Add(Hash2JSON(vList[i]).ToString())
+			self.txtOutput.Lines = list.ToArray()
+		else:
+			self.txtOutput.Text = Hash2JSON(values).ToString()
+	
+	private def NewMarshal() as RubyMarshal:
+		result = RubyMarshal()
+		result.AddUnique('Table', Table)
+		result.AddUnique('Tone', Tone)
+		result.AddUnique('Color', Tone)
+		return result
 	
 	private def ScanProject():
 		_target = self.txtItemID.Value
 		_results.Clear()
 		marshal = RubyMarshal()
-		values = marshal.Read(Path.Combine(Path.GetDirectoryName(txtRMProject.Text), 'MapInfos.rxdata'))
+		_extension = Path.GetExtension(txtRMProject.Text)
+		values = marshal.Read(Path.Combine(Path.GetDirectoryName(txtRMProject.Text), "MapInfos$_extension"))
 		LoadMapData(values)
-		for filename in Directory.EnumerateFiles(Path.GetDirectoryName(txtRMProject.Text), 'Map*.rxdata'):
-			marshal = RubyMarshal()
-			marshal.AddUnique('Table', Table)
-			marshal.AddUnique('Tone', Tone)
-			marshal.AddUnique('Color', Tone)
-			values = marshal.Read(filename)
+		for filename in Directory.EnumerateFiles(Path.GetDirectoryName(txtRMProject.Text), "Map*$_extension"):
+			values = NewMarshal().Read(filename)
 			_mapFile = Path.GetFileNameWithoutExtension(filename)
 			id as int
 			continue unless int.TryParse(_mapFile[3:], id)
-			System.Diagnostics.Debugger.Break() if id == 59
 			_mapName = _mapData[id]
 			CheckMapForMatch(values)
+		CheckCommonEventsForMatch(NewMarshal().Read(Path.Combine(Path.GetDirectoryName(txtRMProject.Text), "CommonEvents$_extension")))
 		self.txtOutput.Lines = _results.ToArray()
 	
 	private def LoadMapData(data as Hash):
+		
+		def ExtractMapName(value) as string:
+			return value if value isa string
+			hVal = value cast Hash
+			return hVal["Object"]
+		
 		_mapData.Clear()
 		for key, value as Hash in array((item.Key, item.Value) for item in (data["Values"] as Hash)):
 			assert value["Class"] == "RPG::MapInfo"
 			props = value["Values"] as Hash
-			_mapData.Add(key, props["@name"])
+			_mapData.Add(key, ExtractMapName(props["@name"]))
+	
+	private def CheckCommonEventsForMatch(value as List):
+		for obj as Hash in value:
+			continue if obj is null
+			assert obj['Class'] == "RPG::CommonEvent"
+			values as Hash = obj['Values']
+			id as int = values["@id"]
+			eventCommands as List = values['@list']
+			validSet = GetValidSet( eventCommands.Cast[of Hash]().Select({h | XPEventCommand(h)}) ).ToArray()
+			first = true
+			for valid in validSet:
+				if first:
+					_results.Add("$(comboBox1.Text) found at Common Event $id")
+					first = false
+				if chkShowAllValues.Checked:
+					_results.Add("	Values: [$(join(valid.Params, ', '))]")
+				else: break
 	
 	private def CheckMapForMatch(value as Hash):
 		assert value['Class'] == "RPG::Map"
@@ -79,22 +116,27 @@ partial class MainForm:
 			eventValues as Hash = mapEvent['Values']
 			assert eventValues['@id'] == eventID
 			pages as List = eventValues['@pages']
+			x as int = eventValues['@x']
+			y as int = eventValues['@y']
 			for pageID as int, page as Hash in enumerate(pages):
-				CheckPageForMatch(eventID, pageID, page)
+				CheckPageForMatch(eventID, pageID, page, x, y)
 	
-	private def CheckPageForMatch(eventID as int, pageID as int, value as Hash):
+	private def CheckPageForMatch(eventID as int, pageID as int, value as Hash, x as int, y as int):
 		assert value['Class'] == "RPG::Event::Page"
 		values as Hash = value['Values']
 		eventCommands as List = values['@list']
-		validSet = eventCommands.Cast[of Hash]().Select({h | XPEventCommand(h)}).Where(_activeFilter).ToArray()
+		validSet = GetValidSet( eventCommands.Cast[of Hash]().Select({h | XPEventCommand(h)}) ).ToArray()
 		first = true
 		for valid in validSet:
 			if first:
-				_results.Add("$(comboBox1.Text) found at \"$_mapName\" ($_mapFile), Event #$eventID, page $(pageID + 1)")
+				_results.Add("$(comboBox1.Text) found at \"$_mapName\" ($_mapFile), Event #$eventID ($x, $y), page $(pageID + 1)")
 				first = false
 			if chkShowAllValues.Checked:
 				_results.Add("	Values: [$(join(valid.Params, ', '))]")
 			else: break
+	
+	private def GetValidSet(eventCommands as XPEventCommand*):
+		return eventCommands.Where(_activeFilter)
 	
 	private def List2JSON(values as List) as JArray:
 		result = JArray()
@@ -106,7 +148,9 @@ partial class MainForm:
 			else: result.Add(elem)
 		return result
 	
-	private def Hash2JSON(value as Hash) as JObject:
+	private def Hash2JSON(value as Hash) as JToken:
+		return JValue.CreateNull() if value is null
+		
 		result = JObject()
 		enumerator = value.GetEnumerator()
 		while enumerator.MoveNext():

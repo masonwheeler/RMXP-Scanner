@@ -39,9 +39,6 @@
     <DefineConstants>TRACE</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="Boo.Lang.Useful">
-      <HintPath>D:\SDL-1.3.0-4423\Boo Local\build\Boo.Lang.Useful.dll</HintPath>
-    </Reference>
     <Reference Include="Newtonsoft.Json">
       <HintPath>..\TURBU.RM2K\bin\Debug\Newtonsoft.Json.dll</HintPath>
     </Reference>
