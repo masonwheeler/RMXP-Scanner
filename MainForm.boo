@@ -5,6 +5,7 @@ import System.IO
 import System.Linq.Enumerable
 import System.Windows.Forms
 import Newtonsoft.Json.Linq
+import Boo.Lang.Interpreter
 
 partial class MainForm:
 	private _target as int
@@ -13,18 +14,44 @@ partial class MainForm:
 	private _extension as string
 	private _results = List[of string]()
 	private _mapData = System.Collections.Generic.Dictionary[of int, string]()
-	private _filters = System.Collections.Generic.Dictionary[of string, Func[of XPEventCommand, bool]]()
-	private _activeFilter as Func[of XPEventCommand, bool]
+	private _filters = System.Collections.Generic.Dictionary[of string, Func[of XPEventCommand, int, bool]]()
+	private _activeFilter as Func[of XPEventCommand, int, bool]
 	
 	public def constructor():
 		// The InitializeComponent() call is required for Windows Forms designer support.
 		InitializeComponent()
-		AddFilter('Add Item', {c | c.Code == 126 and c.Params[0] == _target})
-		AddFilter('Set Switch', {c | c.Code == 121 and _target >= (c.Params[0] cast int) and _target <= (c.Params[1] cast int)})
-		AddFilter('Set Variable', {c | c.Code == 122 and _target >= (c.Params[0] cast int) and _target <= (c.Params[1] cast int)})
-		AddFilter('Teleport To Map', {c | c.Code == 201 and _target == c.Params[1] cast int})
+		filters = GetFilterText()
+		LoadFilters(filters)
 	
-	private def AddFilter(name as string, handler as Func[of XPEventCommand, bool]):
+	private def GetFilterText() as string:
+		var path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), 'RMXP Scanner')
+		Directory.CreateDirectory(path) unless Directory.Exists(path)
+		path = Path.Combine(path, 'filters.txt')
+		if File.Exists(path):
+			return File.ReadAllText(path)
+		else:
+			var result = DefaultFilters.Value
+			File.WriteAllText(path, result)
+			return result
+	
+	private def LoadFilters(text as string):
+		interpreter = InteractiveInterpreter()
+		interpreter.References.Add(System.Reflection.Assembly.GetCallingAssembly())
+		var results = interpreter.Eval(`import TURBU.RubyMarshal.Reader
+AddFilter as System.Action[of string, System.Func[of TURBU.RubyMarshal.XPEventCommand, int, bool]] = null`)
+		System.Diagnostics.Debugger.Break() if results.Errors.Count > 0
+		addFilter as System.Action[of string, System.Func[of TURBU.RubyMarshal.XPEventCommand, int, bool]] = self.AddFilter
+		interpreter.SetValue('AddFilter', addFilter)
+		interpreter.Pipeline.Insert(1, FilterValidator())
+		results = interpreter.Eval(text)
+		if results.Errors.Count > 0:
+			System.Windows.Forms.MessageBox.Show(
+				results.Errors.ToString(),
+				'Unable to load filters.txt',
+				System.Windows.Forms.MessageBoxButtons.OK,
+				System.Windows.Forms.MessageBoxIcon.Error)
+	
+	private def AddFilter(name as string, handler as Func[of XPEventCommand, int, bool]):
 		self.comboBox1.Items.Add(name)
 		self._filters.Add(name, handler)
 	
@@ -136,7 +163,7 @@ partial class MainForm:
 			else: break
 	
 	private def GetValidSet(eventCommands as XPEventCommand*):
-		return eventCommands.Where(_activeFilter)
+		return eventCommands.Where({c | _activeFilter(c, _target)})
 	
 	private def List2JSON(values as List) as JArray:
 		result = JArray()
@@ -169,7 +196,7 @@ partial class MainForm:
 		_activeFilter = _filters[comboBox1.Text]
 		button1.Enabled = true
 
-private class XPEventCommand:
+public class XPEventCommand:
 	[Getter(Params)]
 	_params = []
 	[Getter(Code)]

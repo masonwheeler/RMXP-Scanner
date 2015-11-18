@@ -39,6 +39,9 @@
     <DefineConstants>TRACE</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="Boo.Lang.Interpreter">
+      <HintPath>..\boo\build\Boo.Lang.Interpreter.dll</HintPath>
+    </Reference>
     <Reference Include="Newtonsoft.Json">
       <HintPath>..\TURBU.RM2K\bin\Debug\Newtonsoft.Json.dll</HintPath>
     </Reference>
@@ -50,6 +53,9 @@
   <ItemGroup>
     <Compile Include="AssemblyInfo.boo" />
     <Compile Include="case.boo" />
+    <Compile Include="DefaultFilters.boo" />
+    <Compile Include="FilterReader.boo" />
+    <Compile Include="FilterValidator.boo" />
     <Compile Include="MainForm.boo" />
     <Compile Include="MainForm.Designer.boo">
       <DependentUpon>MainForm.boo</DependentUpon>

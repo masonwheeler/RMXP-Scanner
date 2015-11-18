@@ -58,7 +58,7 @@ partial class MainForm(System.Windows.Forms.Form):
 		# 
 		# dlgRMLocation
 		# 
-		self.dlgRMLocation.Filter = "RPG Maker File (*.rxdata) | *.rxdata"
+		self.dlgRMLocation.Filter = "RPG Maker XP File (*.rxdata) | *.rxdata| RPG Maker VX Ace File (*.rvdata2) | *.rvdata2"
 		# 
 		# button1
 		# 
