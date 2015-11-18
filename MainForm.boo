@@ -55,14 +55,22 @@ AddFilter as System.Action[of string, System.Func[of TURBU.RubyMarshal.XPEventCo
 		self.comboBox1.Items.Add(name)
 		self._filters.Add(name, handler)
 	
+	private def chkReadFileClick(sender as object, e as System.EventArgs):
+		if chkReadFile.Checked:
+			button1.Enabled = not string.IsNullOrEmpty(self.txtRMProject.Text)
+		else:
+			button1.Enabled = not string.IsNullOrEmpty(comboBox1.Text)
+	
 	private def BtnRMProjectClick(sender as object, e as System.EventArgs):
 		if dlgRMLocation.ShowDialog() == DialogResult.OK:
 			self.txtRMProject.Text = dlgRMLocation.FileName
+			button1.Enabled = true if chkReadFile.Checked
 	
 	private def Button1Click(sender as object, e as System.EventArgs):
 		unless string.IsNullOrEmpty(txtRMProject.Text):
-			//ReadFile()
-			ScanProject()
+			if chkReadFile.Checked:
+				ReadFile()
+			else: ScanProject()
 	
 	private def ReadFile():
 		marshal = RubyMarshal()

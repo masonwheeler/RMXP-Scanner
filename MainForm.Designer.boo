@@ -24,6 +24,7 @@ partial class MainForm(System.Windows.Forms.Form):
 		self.comboBox1 = System.Windows.Forms.ComboBox()
 		self.label3 = System.Windows.Forms.Label()
 		self.chkShowAllValues = System.Windows.Forms.CheckBox()
+		self.chkReadFile = System.Windows.Forms.CheckBox()
 		cast(System.ComponentModel.ISupportInitialize,self.txtItemID).BeginInit()
 		self.SuspendLayout()
 		# 
@@ -130,12 +131,23 @@ partial class MainForm(System.Windows.Forms.Form):
 		self.chkShowAllValues.Text = "Show All Values"
 		self.chkShowAllValues.UseVisualStyleBackColor = true
 		# 
+		# chkReadFile
+		# 
+		self.chkReadFile.Location = System.Drawing.Point(650, 28)
+		self.chkReadFile.Name = "chkReadFile"
+		self.chkReadFile.Size = System.Drawing.Size(156, 24)
+		self.chkReadFile.TabIndex = 15
+		self.chkReadFile.Text = "Decode file data"
+		self.chkReadFile.UseVisualStyleBackColor = true
+		self.chkReadFile.Click += self.chkReadFileClick as System.EventHandler
+		# 
 		# MainForm
 		# 
 		self.AutoScaleDimensions = System.Drawing.SizeF(8, 16)
 		self.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font
 		self.ClientSize = System.Drawing.Size(1002, 474)
 		self.Controls.Add(self.chkShowAllValues)
+		self.Controls.Add(self.chkReadFile)
 		self.Controls.Add(self.label3)
 		self.Controls.Add(self.comboBox1)
 		self.Controls.Add(self.txtItemID)
@@ -156,6 +168,7 @@ partial class MainForm(System.Windows.Forms.Form):
 	private dlgRMLocation as System.Windows.Forms.OpenFileDialog
 	private button1 as System.Windows.Forms.Button
 	private chkShowAllValues as System.Windows.Forms.CheckBox
+	private chkReadFile as System.Windows.Forms.CheckBox
 	private label3 as System.Windows.Forms.Label
 	private comboBox1 as System.Windows.Forms.ComboBox
 	private txtItemID as System.Windows.Forms.NumericUpDown
