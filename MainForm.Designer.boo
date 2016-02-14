@@ -26,6 +26,7 @@ partial class MainForm(System.Windows.Forms.Form):
 		self.chkShowAllValues = System.Windows.Forms.CheckBox()
 		self.chkReadFile = System.Windows.Forms.CheckBox()
 		cast(System.ComponentModel.ISupportInitialize,self.txtItemID).BeginInit()
+		self.tvwDisplay = System.Windows.Forms.TreeView()
 		self.SuspendLayout()
 		# 
 		# btnRMProject
@@ -75,9 +76,8 @@ partial class MainForm(System.Windows.Forms.Form):
 		# 
 		# txtOutput
 		# 
-		self.txtOutput.Anchor = cast(System.Windows.Forms.AnchorStyles,(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
-						| System.Windows.Forms.AnchorStyles.Left) 
-						| System.Windows.Forms.AnchorStyles.Right))
+		self.txtOutput.Anchor = cast(System.Windows.Forms.AnchorStyles,((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
+						| System.Windows.Forms.AnchorStyles.Bottom))
 		self.txtOutput.Location = System.Drawing.Point(46, 143)
 		self.txtOutput.Multiline = true
 		self.txtOutput.Name = "txtOutput"
@@ -141,6 +141,16 @@ partial class MainForm(System.Windows.Forms.Form):
 		self.chkReadFile.UseVisualStyleBackColor = true
 		self.chkReadFile.Click += self.chkReadFileClick as System.EventHandler
 		# 
+		# tvwDisplay
+		# 
+		self.tvwDisplay.Anchor = cast(System.Windows.Forms.AnchorStyles,(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+						| System.Windows.Forms.AnchorStyles.Left) 
+						| System.Windows.Forms.AnchorStyles.Right))
+		self.tvwDisplay.Location = System.Drawing.Point(750, 143)
+		self.tvwDisplay.Name = "txtOutput"
+		self.tvwDisplay.Scrollable = true
+		self.tvwDisplay.Size = System.Drawing.Size(245, 305)
+		# 
 		# MainForm
 		# 
 		self.AutoScaleDimensions = System.Drawing.SizeF(8, 16)
@@ -157,6 +167,7 @@ partial class MainForm(System.Windows.Forms.Form):
 		self.Controls.Add(self.btnRMProject)
 		self.Controls.Add(self.label1)
 		self.Controls.Add(self.txtRMProject)
+		self.Controls.Add(self.tvwDisplay)
 		self.Name = "MainForm"
 		self.Text = "MainForm"
 		cast(System.ComponentModel.ISupportInitialize,self.txtItemID).EndInit()
@@ -174,4 +185,5 @@ partial class MainForm(System.Windows.Forms.Form):
 	private txtItemID as System.Windows.Forms.NumericUpDown
 	private label2 as System.Windows.Forms.Label
 	private txtOutput as System.Windows.Forms.TextBox
+	private tvwDisplay as System.Windows.Forms.TreeView
 

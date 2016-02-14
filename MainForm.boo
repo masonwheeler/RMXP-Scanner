@@ -1,6 +1,7 @@
 ﻿namespace TURBU.RubyMarshal
 
 import System
+import System.Collections.Generic
 import System.IO
 import System.Linq.Enumerable
 import System.Windows.Forms
@@ -78,7 +79,7 @@ AddFilter as System.Action[of string, System.Func[of TURBU.RubyMarshal.XPEventCo
 		marshal.AddUnique('Tone', Tone)
 		marshal.AddUnique('Color', Tone)
 		values = marshal.Read(txtRMProject.Text)
-		vList = values as List
+		vList = values as Boo.Lang.List
 		if vList is not null:
 			self.txtOutput.Clear()
 			list = System.Collections.Generic.List[of string]()
@@ -86,7 +87,9 @@ AddFilter as System.Action[of string, System.Func[of TURBU.RubyMarshal.XPEventCo
 				list.Add(Hash2JSON(vList[i]).ToString())
 			self.txtOutput.Lines = list.ToArray()
 		else:
-			self.txtOutput.Text = Hash2JSON(values).ToString()
+			values = Hash2JSON(values)
+			self.txtOutput.Text = values.ToString()
+			JsonToTree(Path.GetFileName(txtRMProject.Text), values)
 	
 	private def NewMarshal() as RubyMarshal:
 		result = RubyMarshal()
@@ -125,13 +128,13 @@ AddFilter as System.Action[of string, System.Func[of TURBU.RubyMarshal.XPEventCo
 			props = value["Values"] as Hash
 			_mapData.Add(key, ExtractMapName(props["@name"]))
 	
-	private def CheckCommonEventsForMatch(value as List):
+	private def CheckCommonEventsForMatch(value as Boo.Lang.List):
 		for obj as Hash in value:
 			continue if obj is null
 			assert obj['Class'] == "RPG::CommonEvent"
 			values as Hash = obj['Values']
 			id as int = values["@id"]
-			eventCommands as List = values['@list']
+			eventCommands as Boo.Lang.List = values['@list']
 			validSet = GetValidSet( eventCommands.Cast[of Hash]().Select({h | XPEventCommand(h)}) ).ToArray()
 			first = true
 			for valid in validSet:
@@ -150,7 +153,7 @@ AddFilter as System.Action[of string, System.Func[of TURBU.RubyMarshal.XPEventCo
 			assert mapEvent['Class'] == "RPG::Event"
 			eventValues as Hash = mapEvent['Values']
 			assert eventValues['@id'] == eventID
-			pages as List = eventValues['@pages']
+			pages as Boo.Lang.List = eventValues['@pages']
 			x as int = eventValues['@x']
 			y as int = eventValues['@y']
 			for pageID as int, page as Hash in enumerate(pages):
@@ -159,7 +162,7 @@ AddFilter as System.Action[of string, System.Func[of TURBU.RubyMarshal.XPEventCo
 	private def CheckPageForMatch(eventID as int, pageID as int, value as Hash, x as int, y as int):
 		assert value['Class'] == "RPG::Event::Page"
 		values as Hash = value['Values']
-		eventCommands as List = values['@list']
+		eventCommands as Boo.Lang.List = values['@list']
 		validSet = GetValidSet( eventCommands.Cast[of Hash]().Select({h | XPEventCommand(h)}) ).ToArray()
 		first = true
 		for valid in validSet:
@@ -173,12 +176,12 @@ AddFilter as System.Action[of string, System.Func[of TURBU.RubyMarshal.XPEventCo
 	private def GetValidSet(eventCommands as XPEventCommand*):
 		return eventCommands.Where({c | _activeFilter(c, _target)})
 	
-	private def List2JSON(values as List) as JArray:
+	private def List2JSON(values as Boo.Lang.List) as JArray:
 		result = JArray()
 		for elem as object in values:
 			if elem isa Hash:
 				result.Add(Hash2JSON(elem))
-			elif elem isa List:
+			elif elem isa Boo.Lang.List:
 				result.Add(List2JSON(elem))
 			else: result.Add(elem)
 		return result
@@ -193,7 +196,7 @@ AddFilter as System.Action[of string, System.Func[of TURBU.RubyMarshal.XPEventCo
 			elem as object = entry.Value
 			if elem isa Hash:
 				elem = Hash2JSON(elem)
-			elif elem isa List:
+			elif elem isa Boo.Lang.List:
 				elem = List2JSON(elem)
 			key as object = entry.Key
 			key = Hash2JSON(key).ToString().Replace('\r\n', '') if key isa Hash
@@ -203,6 +206,80 @@ AddFilter as System.Action[of string, System.Func[of TURBU.RubyMarshal.XPEventCo
 	private def ComboBox1SelectedIndexChanged(sender as object, e as System.EventArgs):
 		_activeFilter = _filters[comboBox1.Text]
 		button1.Enabled = true
+
+	// The routines JsonToTree and Json2Tree are adapted from code found at
+	// http://stackoverflow.com/a/29260447/32914
+	private def JsonToTree(filename as string, obj as JObject):
+		try:
+			tvwDisplay.Nodes.Clear()
+			parent as TreeNode = Json2Tree(obj)
+			parent.Text = filename
+			tvwDisplay.Nodes.Add(parent)
+		except ex as Exception:
+			MessageBox.Show(ex.Message, 'ERROR')
+
+	private def Json2Tree(obj as JObject) as TreeNode:
+		//create the parent node
+		//loop through the obj. all token should be pair<key, value>
+		//change the display Content of the parent
+		//create the child node
+		//check if the value is of type obj recall the method
+		// child.Text = token.Key.ToString();
+		//create a new JObject using the the Token.value
+		o as JObject
+		parent = TreeNode()
+		for token as KeyValuePair[of string, JToken] in obj:
+			key as string = token.Key.ToString()
+			continue if key == 'Type'
+			child = TreeNode()
+			if token.Value.Type.ToString() == 'Object':
+				o = (token.Value cast JObject)
+				//recall the method
+				child = Json2Tree(o)
+				//add the child to the parentNode
+				parent.Nodes.Add(child)
+			elif token.Value.Type.ToString() == 'Array':
+			//if type is of array
+				ix as int = (-1)
+				//  child.Text = token.Key.ToString();
+				//loop though the array
+				for itm in token.Value:
+					//check if value is an Array of objects
+					if itm.Type.ToString() == 'Object':
+						objTN = TreeNode()
+						//child.Text = token.Key.ToString();
+						//call back the method
+						ix += 1
+						
+						o = (itm cast JObject)
+						objTN = Json2Tree(o)
+						objTN.Text = (((token.Key.ToString() + '[') + ix) + ']')
+						child.Nodes.Add(objTN)
+					elif itm.Type.ToString() == 'Array':
+					//parent.Nodes.Add(child);
+					//regular array string, int, etc
+						ix += 1
+						dataArray = TreeNode()
+						for data in itm:
+							dataArray.Text = (((token.Key.ToString() + '[') + ix) + ']')
+							dataArray.Nodes.Add(data.ToString())
+						child.Nodes.Add(dataArray)
+					else:
+						
+						child.Nodes.Add(itm.ToString())
+				parent.Nodes.Add(child)
+			else:
+				//if token.Value is not nested
+				// child.Text = token.Key.ToString();
+				//change the value into N/A if value == null or an empty string 
+				if token.Value.ToString() == '':
+					child.Nodes.Add('N/A')
+				else:
+					child.Nodes.Add(token.Value.ToString())
+				parent.Nodes.Add(child)
+			child.Text = token.Key.ToString()
+		return parent
+		
 
 public class XPEventCommand:
 	[Getter(Params)]
