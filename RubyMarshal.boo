@@ -15,13 +15,15 @@ class RubyMarshal():
 
 	def Read(filename as string) as Object:
 		_symbols.Clear()
+		resultList as List = List()
 		using fs = FileStream(filename, FileMode.Open), sr = BinaryReader(fs):
-			versionMajor = sr.Read()
-			versionMinor = sr.Read()
-			assert versionMajor == 4
-			assert versionMinor == 8
-			result = ReadElement(sr)
-		return result
+			while fs.Position < fs.Length:
+				versionMajor = sr.Read()
+				versionMinor = sr.Read()
+				break unless versionMajor == 4 and versionMinor == 8
+				result = ReadElement(sr)
+				resultList.Add(result)
+		return (result if resultList.Count == 1 else resultList)
 	
 	private def ReadElement(sr as BinaryReader):
 		elem = sr.ReadByte()
@@ -33,15 +35,25 @@ class RubyMarshal():
 			case 0x40: return ReadObjLink(sr)
 			case 0x46: return false
 			case 0x49: return ReadIVAR(sr)
+			case 0x53: return ReadStruct(sr)
 			case 0x54: return true
 			case 0x5b: return ReadArray(sr)
 			case 0x63: return ReadClass(sr)
+			case 0x66: return ReadFloat(sr)
 			case 0x69: return ReadInteger(sr)
 			case 0x6d: return ReadModule(sr)
 			case 0x6f: return ReadObject(sr)
-			case 0x7b: return ReadHash(sr)
 			case 0x75: return ReadUnique(sr)
+			case 0x7b: return ReadHash(sr)
+			case 0x7d: return ReadHashDefault(sr)
 			default: raise "Unknown element type ($(elem.ToString('X')))"
+	
+	private def ReadFloat(sr as BinaryReader) as double:
+		var str = ReadAsciiString(sr)
+		var zIndex = str.IndexOf(char(0))
+		if zIndex > 0:
+			str = str[:zIndex]
+		return double.Parse(str)
 	
 	private def ReadInteger(sr as BinaryReader) as int:
 		value as int = sr.ReadSByte()
@@ -104,6 +116,11 @@ class RubyMarshal():
 			values.Add(key, value)
 		return result
 	
+	private def ReadHashDefault(sr as BinaryReader) as Hash:
+		var result = ReadHash(sr)
+		result['Default'] = ReadElement(sr)
+		return result
+	
 	private def ReadClass(sr as BinaryReader) as Hash:
 		return ReadStringHash(sr, 'Class')
 	
@@ -128,8 +145,12 @@ class RubyMarshal():
 				assert kHash["Type"] == "Symbol"
 				key = kHash["Name"]
 			value = ReadElement(sr)
-			values.Add(key, value)
+			values.Add(key, value) unless values.ContainsKey(key)
 		return result
+	
+	private def ReadStruct(sr as BinaryReader) as Hash:
+		var result = ReadObject(sr)
+		result['Type'] = 'Struct'
 	
 	private def ReadUnique(sr as BinaryReader):
 		elem = sr.ReadByte()
@@ -138,8 +159,10 @@ class RubyMarshal():
 			case 0x3b: symbol = ReadSymlink(sr)
 			default: raise "Unknown UserDef symbol type ($(elem.ToString('X')))"
 		userDef = symbol['Name']
-		reader = _userDefines[userDef]
 		buffer = sr.ReadBytes(ReadInteger(sr))
-		using ms = MemoryStream(buffer), subReader = BinaryReader(ms):
-			return reader(subReader)
-		
+		reader as UserDefMarshal
+		if _userDefines.TryGetValue(userDef, reader):
+			using ms = MemoryStream(buffer), subReader = BinaryReader(ms):
+				return reader(subReader)
+		else:
+			return {'Type': 'UserDef', 'Name': userDef, 'Data': buffer}

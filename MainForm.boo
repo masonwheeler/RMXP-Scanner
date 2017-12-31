@@ -1,4 +1,4 @@
-﻿namespace TURBU.RubyMarshal
+namespace TURBU.RubyMarshal
 
 import System
 import System.Collections.Generic
@@ -79,17 +79,32 @@ AddFilter as System.Action[of string, System.Func[of TURBU.RubyMarshal.XPEventCo
 		marshal.AddUnique('Tone', Tone)
 		marshal.AddUnique('Color', Tone)
 		values = marshal.Read(txtRMProject.Text)
+		var baseFilename = Path.GetFileName(txtRMProject.Text)
 		vList = values as Boo.Lang.List
 		if vList is not null:
 			self.txtOutput.Clear()
 			list = System.Collections.Generic.List[of string]()
+			tvwDisplay.Nodes.Clear()
+			container = JObject()
 			for i in range(vList.Count):
-				list.Add(Hash2JSON(vList[i]).ToString())
+				if vList[i] isa Hash:
+					var jHash = Hash2JSON(vList[i])
+					list.Add(jHash.ToString())
+					container.Add(i.ToString(), jHash)
+				elif vList[i] isa Boo.Lang.List:
+					var jList = List2JSON(vList[i])
+					list.Add(jList.ToString())
+					container.Add(i.ToString(), jList)
+				elif vList[i] is not null:
+					var jt = JToken.FromObject(vList[i])
+					list.Add(jt.ToString())
+					container.Add(i.ToString(), jt)
+			JsonToTree(baseFilename, container)
 			self.txtOutput.Lines = list.ToArray()
 		else:
 			values = Hash2JSON(values)
 			self.txtOutput.Text = values.ToString()
-			JsonToTree(Path.GetFileName(txtRMProject.Text), values)
+			JsonToTree(baseFilename, values)
 	
 	private def NewMarshal() as RubyMarshal:
 		result = RubyMarshal()
@@ -158,6 +173,14 @@ AddFilter as System.Action[of string, System.Func[of TURBU.RubyMarshal.XPEventCo
 			y as int = eventValues['@y']
 			for pageID as int, page as Hash in enumerate(pages):
 				CheckPageForMatch(eventID, pageID, page, x, y)
+	
+	private def CheckPageConditionsForMatch(eventID as int, pageID as int, value as Hash, x as int, y as int):
+		values as Hash = value['Values']
+		conditions as Hash = (values['@condition'] cast Hash)['Values']
+		var variable = conditions['@variable_id'] cast int
+		if variable == _target:
+			var check = conditions['@variable_value'] cast int
+			_results.Add("Variable >= $check found at \"$_mapName\" ($_mapFile), Event #$eventID ($x, $y), page $(pageID + 1)")
 	
 	private def CheckPageForMatch(eventID as int, pageID as int, value as Hash, x as int, y as int):
 		assert value['Class'] == "RPG::Event::Page"

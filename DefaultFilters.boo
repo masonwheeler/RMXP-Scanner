@@ -50,4 +50,7 @@ Filter 'Set Variable':
 Filter 'Teleport To Map':
 	Code 201 
 	Value 1 = Target
+filter 'Call Common Event':
+	Code 117
+	Value 0 = Target
 `
